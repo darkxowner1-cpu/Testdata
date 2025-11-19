@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App - Frontend Demo</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a2e; color: #e4e4e4; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .page { background-color: #0f3460; padding: 25px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); max-width: 400px; width: 90%; }
+        h2 { color: #e94560; text-align: center; margin-bottom: 20px; }
+        input, button { width: 100%; padding: 10px; margin-bottom: 10px; border: none; border-radius: 5px; box-sizing: border-box; }
+        input { background-color: #16213e; color: #e4e4e4; border: 1px solid #533483; }
+        button { background-color: #533483; color: white; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #9253c3; }
+        .link { text-align: center; margin-top: 15px; color: #a9a9a9; cursor: pointer; }
+        /* Chat Box Styles */
+        #chat-interface { display: flex; max-width: 800px; width: 90%; min-height: 500px; background-color: #16213e; padding: 0; }
+        #sidebar { width: 30%; background-color: #1a1a2e; padding: 15px; border-right: 1px solid #533483; }
+        #main-chat { width: 70%; display: flex; flex-direction: column; }
+        #messages-container { flex-grow: 1; padding: 15px; overflow-y: auto; }
+        #message-input-area { display: flex; padding: 10px; border-top: 1px solid #533483; }
+        #message-text { flex-grow: 1; margin-right: 10px; }
+        .message-bubble { background-color: #0f3460; padding: 8px 12px; border-radius: 15px; margin-bottom: 8px; max-width: 70%; }
+        .message-bubble.me { margin-left: auto; background-color: #e94560; color: white; }
+        .message-info { font-size: 0.75em; color: #a9a9a9; margin-bottom: 3px; }
+        .list-header { color: #e94560; margin-bottom: 10px; border-bottom: 1px solid #533483; padding-bottom: 5px; }
+        .user-list-item { padding: 5px 0; border-bottom: 1px dotted #2f3e53; cursor: pointer; }
+        .user-list-item:hover { color: #e94560; }
+        .top-bar { display: flex; justify-content: space-between; padding: 10px; background-color: #0f3460; border-bottom: 1px solid #533483; }
+        .top-bar button { width: auto; padding: 5px 10px; margin-bottom: 0; }
+        .timestamp { font-size: 0.7em; color: #888; margin-left: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="login-page" class="page">
+    <h2>👋 Karibu! Ingia Kwanza</h2>
+    <input type="email" id="login-email" placeholder="Barua pepe (Gmail)">
+    <input type="password" id="login-password" placeholder="Neno la siri (Password)">
+    <button onclick="handleLogin()">INGIA (LOGIN)</button>
+    <div class="link" onclick="showPage('register-page')">Bado hujajisajili? Jisajili hapa.</div>
+</div>
+
+<div id="register-page" class="page" style="display: none;">
+    <h2>✍️ Jisajili Sasa</h2>
+    <input type="email" id="reg-email" placeholder="Barua pepe (Gmail)">
+    <input type="password" id="reg-password" placeholder="Neno la siri (Password)">
+    <input type="text" id="reg-username" placeholder="Jina la Mtumiaji (Username)" required>
+    <button onclick="handleRegistration()">JISAJILI</button>
+    <div class="link" onclick="showPage('login-page')">Rudi kuingia.</div>
+</div>
+
+<div id="chat-interface" style="display: none;">
+    <div id="sidebar">
+        <h3 class="list-header">👥 Watumiaji Waliosajiliwa (Demo)</h3>
+        <div id="registered-users-list">
+            </div>
+        <div style="margin-top: 20px;">
+            <button onclick="handleDeleteAccount()" style="background-color: #833434;">FUTA ACCOUNT</button>
+        </div>
+    </div>
+    
+    <div id="main-chat">
+        <div class="top-bar">
+            <span style="color: #e94560; font-weight: bold;">👤 Umeingia kama: <span id="current-username"></span></span>
+            <button onclick="handleLogout()">LOGOUT</button>
+        </div>
+        <div id="messages-container">
+            </div>
+        <div id="message-input-area">
+            <input type="text" id="message-text" placeholder="Andika ujumbe wako..." onkeypress="if(event.key === 'Enter') sendMessage()">
+            <input type="file" id="photo-upload" accept="image/*" style="width: 120px; padding: 5px 10px; margin-right: 10px; font-size: 0.8em;">
+            <button onclick="sendMessage()" style="width: 80px; margin-bottom: 0;">Tuma</button>
+        </div>
+    </div>
+</div>
+<script>
+    // FUNCTIONS KWA AJILI YA KUONYESHA KURASA
+    let currentUser = null;
+    let users = JSON.parse(localStorage.getItem('chat_demo_users')) || [];
+    let messages = JSON.parse(localStorage.getItem('chat_demo_messages')) || [];
+
+    function showPage(pageId) {
+        document.getElementById('login-page').style.display = 'none';
+        document.getElementById('register-page').style.display = 'none';
+        document.getElementById('chat-interface').style.display = 'none';
+        document.getElementById(pageId).style.display = pageId === 'chat-interface' ? 'flex' : 'block';
+    }
+
+    // HANDLERS ZA LOGIN/REGISTRATION
+    function handleRegistration() {
+        const email = document.getElementById('reg-email').value;
+        const password = document.getElementById('reg-password').value;
+        const username = document.getElementById('reg-username').value;
+
+        if (users.find(u => u.email === email || u.username === username)) {
+            alert("Mtumiaji au barua pepe tayari ipo. Tafadhali ingia.");
+            return;
+        }
+
+        // Katika REAL APP, data hii ingeenda kwenye database!
+        const newUser = { email, password, username, id: Date.now() };
+        users.push(newUser);
+        localStorage.setItem('chat_demo_users', JSON.stringify(users)); // Kuhifadhi kwa Demo
+        alert(`Usajili Umefaulu! Karibu ${username}.`);
+        showPage('login-page');
+    }
+
+    function handleLogin() {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+
+        const user = users.find(u => u.email === email && u.password === password);
+        
+        if (user) {
+            currentUser = user;
+            document.getElementById('current-username').textContent = currentUser.username;
+            updateUsersList();
+            loadMessages();
+            start12HourTimer();
+            showPage('chat-interface');
+        } else {
+            alert("Barua pepe au neno la siri si sahihi (Kumbuka: Hii ni demo, lazima ujisajili kwanza).");
+        }
+    }
+
+    function handleLogout() {
+        currentUser = null;
+        showPage('login-page');
+        document.getElementById('login-email').value = '';
+        document.getElementById('login-password').value = '';
+    }
+
+    function handleDeleteAccount() {
+        if (!currentUser) return;
+        if (confirm(`Una uhakika unataka kufuta account yako, ${currentUser.username}? Data yote itapotea.`)) {
+            // Futa mtumiaji (kwa demo ya Local Storage)
+            users = users.filter(u => u.id !== currentUser.id);
+            localStorage.setItem('chat_demo_users', JSON.stringify(users));
+            alert("Account imefutwa kwa ufanisi.");
+            handleLogout();
+        }
+    }
+
+    // CHATBOX LOGIC
+    function sendMessage() {
+        const inputElement = document.getElementById('message-text');
+        const fileElement = document.getElementById('photo-upload');
+        const text = inputElement.value.trim();
+        const file = fileElement.files[0];
+
+        if (!text && !file) return;
+
+        const timestamp = new Date().toLocaleTimeString();
+
+        let newMessage = {
+            sender: currentUser.username,
+            text: text,
+            timestamp: timestamp,
+            isImage: false,
+            url: null 
+        };
+
+        if (file) {
+            // Katika REAL APP, hapa tungepakia picha kwenye S3/Cloudinary na kuhifadhi URL!
+            // Kwa demo, tunatumia FileReader (Inaweza kusababisha issues za ukubwa wa data)
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                newMessage.isImage = true;
+                newMessage.url = e.target.result; // Data URL ya picha
+                saveAndDisplayMessage(newMessage);
+                fileElement.value = ''; // Clear file input
+            };
+            reader.readAsDataURL(file);
+        } else {
+            saveAndDisplayMessage(newMessage);
+        }
+
+        inputElement.value = ''; // Clear text input
+    }
+    
+    function saveAndDisplayMessage(newMessage) {
+        // Katika REAL APP, data ingeenda database hapa!
+        messages.push(newMessage);
+        localStorage.setItem('chat_demo_messages', JSON.stringify(messages));
+        appendMessage(newMessage);
+        document.getElementById('messages-container').scrollTop = document.getElementById('messages-container').scrollHeight;
+    }
+
+    function appendMessage(msg) {
+        const container = document.getElementById('messages-container');
+        const isMe = msg.sender === currentUser.username;
+        
+        const bubble = document.createElement('div');
+        bubble.className = `message-bubble ${isMe ? 'me' : ''}`;
+        
+        const info = document.createElement('div');
+        info.className = 'message-info';
+        info.textContent = `${msg.sender} (${msg.timestamp})`;
+        bubble.appendChild(info);
+
+        if (msg.isImage && msg.url) {
+            const img = document.createElement('img');
+            img.src = msg.url;
+            img.style.maxWidth = '100%';
+            img.style.borderRadius = '5px';
+            bubble.appendChild(img);
+        }
+        
+        if (msg.text) {
+            const textNode = document.createElement('p');
+            textNode.textContent = msg.text;
+            bubble.appendChild(textNode);
+        }
+
+        container.appendChild(bubble);
+    }
+
+    function loadMessages() {
+        document.getElementById('messages-container').innerHTML = '';
+        messages.forEach(appendMessage);
+    }
+    
+    function updateUsersList() {
+        const listDiv = document.getElementById('registered-users-list');
+        listDiv.innerHTML = '';
+        users.forEach(user => {
+            const item = document.createElement('div');
+            item.className = 'user-list-item';
+            item.textContent = user.username + (user.id === currentUser.id ? ' (Wewe)' : '');
+            listDiv.appendChild(item);
+        });
+    }
+
+    // 12 HOUR AUTO-DELETE SIMULATION
+    function start12HourTimer() {
+        // Katika REAL APP, hii ingekuwa kazi ya Netlify Scheduled Function (Cron Job)!
+        const twelveHoursInMs = 12 * 60 * 60 * 1000;
+        
+        // Simu ya dhihaka: Haina maana kufanya hili kwa kweli kwenye kivinjari, lakini tunaonyesha logic.
+        setTimeout(() => {
+            if (currentUser) {
+                messages = [];
+                localStorage.setItem('chat_demo_messages', JSON.stringify(messages));
+                loadMessages();
+                alert("Ujumbe wote umefutwa (Kufuta kila baada ya Masaa 12 kumefanyika)!");
+            }
+        }, twelveHoursInMs);
+    }
+
+    // Anzisha mfumo
+    if (users.length === 0) {
+        showPage('register-page'); // Anza na registration kama hakuna aliyesajiliwa
+    } else {
+        showPage('login-page');
+    }
+</script>
+
+</body>
+</html>
